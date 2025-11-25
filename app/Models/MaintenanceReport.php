@@ -6,53 +6,80 @@ use Illuminate\Database\Eloquent\Model;
 
 class MaintenanceReport extends Model
 {
+    // Status baku
+    public const ST_DRAFT    = 'draft';
+    public const ST_SUBMIT   = 'submitted';
+    public const ST_APPROVED = 'approved';
+    public const ST_REVISION = 'revision';
+    public const ST_REJECTED = 'rejected';
+
     protected $fillable = [
         'schedule_id',
-        'technician_id',
-        'units_serviced',
+        'user_id',
+        'report_date',
+        'units_done',
+        'units_completed',
+        'photos_start',
+        'photos_finish',
+        'photos_extra',
+        'invoice_path',
         'notes',
-        'photos',               // simpan array path bila pakai multiple
-        'invoice_number',
-        'status',               // draft|submitted|revisi|disetujui
+        'status',
+        'review_note',
         'verified_by_admin_id',
         'verified_at',
-
-        // jika kamu sudah menambahkan kolom start/finish & files tunggal
-        'started_at',
-        'finished_at',
-        'start_photo_path',
-        'end_photo_path',
-        'receipt_path',
     ];
 
     protected $casts = [
-        'photos'      => 'array',
-        'verified_at' => 'datetime',
-        'started_at'  => 'datetime',
-        'finished_at' => 'datetime',
+        'photos_start'  => 'array',
+        'photos_finish' => 'array',
+        'photos_extra'  => 'array',
+        'report_date' => 'datetime',
+        'verified_at'   => 'datetime',
     ];
+    protected $dates = [
+    'report_date',
+];
 
-    /** Laporan milik satu jadwal */
+    /* ================== RELATIONS ================== */
+
     public function schedule()
     {
-        return $this->belongsTo(\App\Models\MaintenanceSchedule::class, 'schedule_id');
+        return $this->belongsTo(MaintenanceSchedule::class);
     }
 
-    /** Teknisi yang mengerjakan laporan */
-    public function technician()
+    public function user()
     {
-        return $this->belongsTo(\App\Models\User::class, 'technician_id');
-    }
-
-    /** Admin yang memverifikasi */
-    public function verifier()
-    {
-        return $this->belongsTo(\App\Models\User::class, 'verified_by_admin_id');
+        return $this->belongsTo(User::class,'user_id');
     }
 
     public function feedback()
-{
-    return $this->hasOne(\App\Models\Feedback::class, 'report_id');
-}
+    {
+        return $this->hasOne(\App\Models\Feedback::class,'report_id');
+    }
 
+    /* ================== ACCESSORS ================== */
+
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            self::ST_DRAFT    => 'Draft',
+            self::ST_SUBMIT   => 'Menunggu Verifikasi',
+            self::ST_APPROVED => 'Disetujui',
+            self::ST_REVISION => 'Revisi',
+            self::ST_REJECTED => 'Ditolak',
+            default           => ucfirst($this->status ?: 'draft'),
+        };
+    }
+
+    public function getStatusBadgeClassAttribute(): string
+    {
+        return match ($this->status) {
+            self::ST_APPROVED => 'bg-emerald-100 text-emerald-700',
+            self::ST_REVISION => 'bg-amber-100 text-amber-700',
+            self::ST_SUBMIT   => 'bg-indigo-100 text-indigo-700',
+            self::ST_REJECTED => 'bg-red-100 text-red-700',
+            default           => 'bg-gray-100 text-gray-700',
+        };
+    }
 }

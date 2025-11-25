@@ -13,7 +13,7 @@
         <tbody>
         @forelse ($activeTasks as $t)
           <tr class="border-t">
-            <td class="p-3">{{ $t->scheduled_at->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ $t->scheduled_at->format('d M Y') }}</td>
             <td class="p-3">{{ $t->client->company_name ?? '-' }} — {{ $t->location->name ?? '-' }}</td>
             <td class="p-3"><span class="px-2 py-1 rounded bg-gray-100">{{ $t->status }}</span></td>
           </tr>
@@ -39,7 +39,7 @@
         <tbody>
         @forelse ($history as $h)
           <tr class="border-t">
-            <td class="p-3">{{ $h->scheduled_at->format('d M Y H:i') }}</td>
+            <td class="p-3">{{ $h->scheduled_at->format('d M Y') }}</td>
             <td class="p-3">{{ $h->client->company_name ?? '-' }} — {{ $h->location->name ?? '-' }}</td>
             <td class="p-3"><span class="px-2 py-1 rounded bg-emerald-100">Selesai</span></td>
           </tr>

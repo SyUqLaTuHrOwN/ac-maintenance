@@ -49,10 +49,16 @@ class User extends Authenticatable
         return $this->hasOne(Client::class, 'user_id');
     }
 
-    public function technicianProfile()
-    {
-        return $this->hasOne(TechnicianProfile::class, 'user_id');
-    }
+public function technicianProfile()
+{
+    return $this->hasOne(\App\Models\TechnicianProfile::class);
+}
+
+public function technicianLeaves()
+{
+    return $this->hasMany(\App\Models\TechnicianLeave::class, 'user_id');
+}
+
 
     public function leaves()
     {
@@ -63,6 +69,11 @@ class User extends Authenticatable
     {
         return $this->leaves()->approved();
     }
+    public function profile()
+{
+    return $this->hasOne(\App\Models\TechnicianProfile::class);
+}
+
 
     /* ===========================
        LOGIC: CEK CUTI HARI INI / TGL TERTENTU
@@ -80,10 +91,33 @@ class User extends Authenticatable
             ->exists();
     }
 
+public function maintenanceSchedules()
+{
+    return $this->hasMany(MaintenanceSchedule::class, 'assigned_user_id');
+}
     /* ===========================
        ACCESSOR: STATUS LIVE
        Digunakan di tabel teknisi
     ============================ */
+public function getStatusTeknisiAttribute()
+{
+    return $this->profile->status ?? 'aktif';
+}
+
+public function isCuti()
+{
+    return $this->status_teknisi === 'cuti';
+}
+
+public function isBertugas()
+{
+    return $this->status_teknisi === 'sedang_bertugas';
+}
+
+public function isAktif()
+{
+    return $this->status_teknisi === 'aktif';
+}
 
     public function getLeaveStatusAttribute(): string
     {

@@ -5,71 +5,187 @@ namespace App\Livewire\Admin\Reports;
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\MaintenanceReport;
+use App\Models\Client;
+use App\Models\User;
+use App\Support\Role;
 
 class Index extends Component
 {
     use WithPagination;
 
-    public string $search = '';
-    public ?string $status = null; // null semua, atau: draft|submitted|revisi|disetujui
-    public int $month;
-    public int $year;
+    public ?int $clientFilter      = null;
+    public ?int $technicianFilter  = null;
+    public ?string $statusFilter   = 'submitted';
+    public ?string $dateFrom       = null;
+    public ?string $dateTo         = null;
+    public ?string $search         = '';
 
-    public function mount(): void
+    // modal revisi
+    public ?int $reviewId          = null;
+    public ?string $review_note    = null;
+
+    // modal detail
+    public $detail                 = null;   // MaintenanceReport|null
+    public bool $detailMode        = false;
+
+    protected $paginationTheme     = 'tailwind';
+
+    public function updating($field)
     {
-        $now = now();
-        $this->month = (int) $now->month;
-        $this->year  = (int) $now->year;
+        if (in_array($field, [
+            'clientFilter', 'technicianFilter', 'statusFilter',
+            'dateFrom', 'dateTo', 'search',
+        ], true)) {
+            $this->resetPage();
+        }
     }
 
-    public function verify(int $id): void
+    public function openReview(int $id, bool $asDetail = false): void
     {
-        $r = MaintenanceReport::findOrFail($id);
-        $r->status = 'disetujui';
-        $r->verified_by_admin_id = auth()->id();
-        $r->verified_at = now();
-        $r->save();
+        if ($asDetail) {
+            // buka modal detail
+            $this->detail = MaintenanceReport::with([
+                'schedule.location.client',
+                'schedule.units',
+                'user',
+            ])->findOrFail($id);
 
-        session()->flash('ok','Laporan disetujui.');
+            $this->detailMode   = true;
+            $this->reviewId     = null;
+            $this->review_note  = null;
+
+            return;
+        }
+
+        // buka modal minta revisi
+        $this->detailMode   = false;
+        $this->reviewId     = $id;
+        $this->review_note  = null;
     }
 
-    public function requestRevision(int $id): void
+    public function closeDetail(): void
     {
-        $r = MaintenanceReport::findOrFail($id);
-        $r->status = 'revisi';
-        $r->verified_by_admin_id = null;
-        $r->verified_at = null;
-        $r->save();
+        $this->detail       = null;
+        $this->detailMode   = false;
+    }
 
-        session()->flash('ok','Status diubah ke revisi. Minta teknisi perbarui berkas/catatan.');
+    public function closeReview(): void
+    {
+        $this->reviewId     = null;
+        $this->review_note  = null;
+    }
+
+    public function approve(int $id): void
+    {
+        // load schedule + semua reports utk hitung progress schedule
+        $report = MaintenanceReport::with('schedule.reports', 'schedule.units')
+            ->findOrFail($id);
+
+        $report->update([
+            'status'               => MaintenanceReport::ST_APPROVED,
+            'verified_by_admin_id' => auth()->id(),
+            'verified_at'          => now('Asia/Jakarta'),
+        ]);
+
+        $sched = $report->schedule;
+
+        if ($sched) {
+            // total rencana, fallback ke jumlah unit di relasi
+            $totalUnits = $sched->total_units ?: $sched->unit_count;
+
+            // hitung total unit yg approved
+            $approvedUnits = $sched->reports
+                ->where('status', MaintenanceReport::ST_APPROVED)
+                ->sum('units_done');
+
+            // simpan ke progress_units utk dipakai di sisi client
+            $sched->progress_units = $approvedUnits;
+
+            // jika penuh -> selesai_servis (masih menunggu konfirmasi client)
+            if ($totalUnits && $approvedUnits >= $totalUnits) {
+                $sched->status = 'selesai_servis';
+            }
+
+            $sched->save();
+        }
+
+        session()->flash('ok', 'Laporan disetujui.');
+    }
+
+    public function sendRevision(): void
+    {
+        $this->validate([
+            'reviewId'    => ['required', 'exists:maintenance_reports,id'],
+            'review_note' => ['required', 'string', 'min:5'],
+        ]);
+
+        $report = MaintenanceReport::findOrFail($this->reviewId);
+
+        $report->update([
+            'status'      => MaintenanceReport::ST_REVISION,
+            'review_note' => $this->review_note,
+            'verified_at' => null,
+        ]);
+
+        $this->closeReview();
+        session()->flash('ok', 'Laporan diminta revisi.');
     }
 
     public function render()
     {
-        $from = now()->setDate($this->year, $this->month, 1)->startOfMonth();
-        $to   = (clone $from)->endOfMonth();
+        $clients = Client::orderBy('company_name')->get(['id', 'company_name']);
+        $technicians = User::where('role', Role::TEKNISI)
+            ->orderBy('name')
+            ->get(['id', 'name']);
 
-        $q = MaintenanceReport::with([
-                'schedule.client','schedule.location','technician'
+        $reports = MaintenanceReport::with([
+                'schedule.location.client',
+                'schedule.units',
+                'user',
             ])
-            // filter tanggal berdasarkan jadwalnya
-            ->whereHas('schedule', fn($s)=> $s->whereBetween('scheduled_at', [$from, $to]))
-            // search klien/teknisi
-            ->when($this->search, function ($qq) {
-                $term = "%{$this->search}%";
-                $qq->whereHas('schedule.client', fn($c)=> $c->where('company_name','like',$term))
-                   ->orWhereHas('technician', fn($t)=> $t->where('name','like',$term));
+            ->when($this->statusFilter, fn ($q) =>
+                $q->where('status', $this->statusFilter)
+            )
+            ->when($this->clientFilter, function ($q) {
+                $q->whereHas('schedule.client', fn ($qq) =>
+                    $qq->where('id', $this->clientFilter)
+                );
             })
-            // filter status
-            ->when($this->status, fn($qq)=> $qq->where('status', $this->status))
-            ->latest();
+            ->when($this->technicianFilter, fn ($q) =>
+                $q->where('user_id', $this->technicianFilter)
+            )
+            ->when($this->dateFrom, fn ($q) =>
+                $q->whereDate('report_date', '>=', $this->dateFrom)
+            )
+            ->when($this->dateTo, fn ($q) =>
+                $q->whereDate('report_date', '<=', $this->dateTo)
+            )
+            ->when($this->search, function($q){
+    $s = "%{$this->search}%";
 
-        $reports = $q->paginate(12);
+    $q->where(function($w) use ($s){
+        $w->whereHas('schedule.location', fn($l)=>
+                $l->where('name','like',$s)
+            )
+          ->orWhereHas('schedule.client', fn($c)=>
+                $c->where('company_name','like',$s)
+            )
+          ->orWhereHas('user', fn($u)=>
+                $u->where('name','like',$s)
+            );
+    });
+})
+            ->orderByDesc('report_date')
+            ->orderByDesc('id')
+            ->paginate(15);
 
-        return view('livewire.admin.reports.index', compact('reports'))
-            ->layout('layouts.app', [
-                'title'=>'Laporan',
-                'header'=>'Operasional • Laporan'
-            ]);
+        return view('livewire.admin.reports.index', [
+            'reports'     => $reports,
+            'clients'     => $clients,
+            'technicians' => $technicians,
+        ])->layout('layouts.app', [
+            'title'  => 'Laporan Maintenance',
+            'header' => 'Operasional • Laporan',
+        ]);
     }
 }

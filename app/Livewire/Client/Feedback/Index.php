@@ -47,16 +47,22 @@ class Index extends Component
         session()->flash('ok','Terima kasih! Feedback tersimpan.');
     }
 
-    public function render()
-    {
-        $client = auth()->user()->clientProfile;
-        $reports = \App\Models\MaintenanceReport::with(['schedule.location','feedback'])
-            ->whereHas('schedule', fn($q)=> $q->where('client_id',$client->id))
-            ->whereNotNull('finished_at')
-            ->latest()
-            ->get();
+   public function render()
+{
+    $client = auth()->user()->clientProfile;
 
-        return view('livewire.client.feedback.index', compact('reports'))
-            ->layout('layouts.app', ['title'=>'Feedback','header'=>'Client • Feedback']);
-    }
+    $reports = \App\Models\MaintenanceReport::with(['schedule.location','feedback'])
+        ->whereHas('schedule', fn($q)=> 
+            $q->where('client_id', $client->id)
+        )
+        ->where('status', 'approved_by_client')  // FIXED
+        ->latest()
+        ->get();
+
+    return view('livewire.client.feedback.index', compact('reports'))
+        ->layout('layouts.app', [
+            'title' => 'Feedback',
+            'header'=> 'Client • Feedback'
+        ]);
+}
 }

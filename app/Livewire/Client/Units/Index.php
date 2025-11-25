@@ -3,7 +3,7 @@
 namespace App\Livewire\Client\Units;
 
 use Livewire\Component;
-use App\Models\UnitAc; // ← pakai model yang ada
+use App\Models\UnitAc;
 use Illuminate\Support\Facades\Auth;
 
 class Index extends Component
@@ -12,11 +12,12 @@ class Index extends Component
     {
         $client = Auth::user()->clientProfile;
 
-        // Ambil unit milik client melalui relasi lokasi (location.client_id)
-        $units = UnitAc::with(['location']) // kalau Location punya relasi client, boleh tambah 'location.client'
+        // ambil unit berdasarkan lokasi milik client
+        $units = UnitAc::with(['location.client'])
             ->whereHas('location', function ($q) use ($client) {
                 $q->where('client_id', $client->id);
             })
+            ->orderBy('location_id')
             ->orderBy('brand')
             ->orderBy('model')
             ->get();

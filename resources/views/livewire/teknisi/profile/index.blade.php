@@ -1,49 +1,60 @@
-<div class="max-w-4xl mx-auto">
-  <div class="rounded-xl border bg-white p-6">
-    <div class="text-lg font-semibold mb-4">Biodata</div>
+<div class="max-w-3xl mx-auto space-y-6">
 
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+  <div class="bg-white rounded-xl shadow p-6 space-y-4">
+    <h2 class="text-lg font-semibold">Profil Ketua Tim</h2>
+
+    <div class="grid grid-cols-2 gap-4 text-sm">
       <div>
-        <div class="text-sm text-slate-500">Nama</div>
-        <div class="mt-1 font-medium">{{ $user->name }}</div>
+        <div class="text-slate-500">Nama Ketua / Nama Tim</div>
+        <div class="font-medium">{{ $profile->leader_name ?? $user->name }}</div>
       </div>
 
       <div>
-        <div class="text-sm text-slate-500">Email</div>
-        <div class="mt-1 font-medium">{{ $user->email }}</div>
+        <div class="text-slate-500">Email (login)</div>
+        <div class="font-medium">{{ $user->email }}</div>
       </div>
 
       <div>
-        <div class="text-sm text-slate-500">Telepon</div>
-        <div class="mt-1 font-medium">
-          {{ $user->technicianProfile?->phone ?? '—' }}
+        <div class="text-slate-500">No HP Ketua</div>
+        <div class="font-medium">{{ $profile->phone ?? '-' }}</div>
+      </div>
+
+      <div>
+        <div class="text-slate-500">Status</div>
+        <div class="font-medium">
+          {{ $profile->status_label ?? 'Aktif' }}
         </div>
       </div>
 
-      <div>
-        <div class="text-sm text-slate-500">Status</div>
-        <div class="mt-1">
-          @php $st = $user->technicianProfile?->status ?? 'aktif'; @endphp
-          <span class="px-2 py-1 rounded text-sm
-            {{ $st==='aktif' ? 'bg-emerald-50 text-emerald-700' : ($st==='cuti' ? 'bg-amber-50 text-amber-700' : 'bg-rose-50 text-rose-700') }}">
-            {{ $st }}
-          </span>
-        </div>
-      </div>
-
-      <div class="md:col-span-2">
-        <div class="text-sm text-slate-500">Alamat</div>
-        <div class="mt-1 font-medium">
-          {{ $user->technicianProfile?->address ?? '—' }}
-        </div>
+      <div class="col-span-2">
+        <div class="text-slate-500">Alamat / Area Kerja</div>
+        <div class="font-medium">{{ $profile->address ?? '-' }}</div>
       </div>
     </div>
-
-    <hr class="my-6">
-
-    <p class="text-sm text-slate-500">
-      Perubahan biodata & reset password hanya dapat dilakukan oleh <span class="font-semibold">Admin</span>.
-      Silakan hubungi admin jika ada pembaruan data.
-    </p>
   </div>
+
+  <div class="bg-white rounded-xl shadow p-6 space-y-4">
+    <h2 class="text-lg font-semibold">Anggota Tim</h2>
+
+    <div class="space-y-2 text-sm">
+      <div>
+        <div class="text-slate-500">Anggota 1</div>
+        <div class="font-medium">{{ $profile->member_1_name ?? '-' }}</div>
+      </div>
+      <div>
+        <div class="text-slate-500">Anggota 2</div>
+        <div class="font-medium">{{ $profile->member_2_name ?? '-' }}</div>
+      </div>
+    </div>
+  </div>
+
+  @if($profile?->extra_bio)
+    <div class="bg-white rounded-xl shadow p-6 space-y-4">
+      <h2 class="text-lg font-semibold">Biodata Tambahan</h2>
+      <pre class="text-xs bg-slate-50 rounded-lg p-3 overflow-x-auto">
+{{ json_encode($profile->extra_bio, JSON_PRETTY_PRINT|JSON_UNESCAPED_UNICODE) }}
+      </pre>
+    </div>
+  @endif
+
 </div>

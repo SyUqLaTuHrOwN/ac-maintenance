@@ -1,57 +1,103 @@
 <?php
-// app/Livewire/Admin/TechLeaves/Index.php
+
 namespace App\Livewire\Admin\TechLeaves;
 
 use Livewire\Component;
 use Livewire\WithPagination;
 use App\Models\TechnicianLeave;
-use App\Models\User;
+use App\Models\TechnicianProfile;
 use Illuminate\Support\Carbon;
 
 class Index extends Component
 {
     use WithPagination;
 
-    public $status = 'pending';   // filter default
-    public $search = '';
+    public string $statusFilter = 'all';
+    public ?TechnicianLeave $detailLeave = null;
+    public bool $showDetail = false;
 
-    public function approve(int $id)
+    protected $paginationTheme = 'tailwind';
+
+    public function openDetail($id)
     {
-        $lv = TechnicianLeave::findOrFail($id);
-        $lv->update([
-            'status' => 'approved',
-            'decided_at' => now(),
-            'decided_by' => auth()->id(),
-        ]);
-        $this->dispatch('toast', message: 'Cuti disetujui.', type: 'ok');
+        $this->detailLeave = TechnicianLeave::with(['user','decider'])->findOrFail($id);
+        $this->showDetail = true;
     }
 
-    public function reject(int $id)
+    public function closeDetail()
     {
-        $lv = TechnicianLeave::findOrFail($id);
-        $lv->update([
-            'status' => 'rejected',
-            'decided_at' => now(),
-            'decided_by' => auth()->id(),
-        ]);
-        $this->dispatch('toast', message: 'Cuti ditolak.', type: 'err');
+        $this->detailLeave = null;
+        $this->showDetail = false;
+    }
+
+    /**
+     * Admin menyetujui cuti
+     */
+    public function approve($id)
+{
+    $leave = TechnicianLeave::findOrFail($id);
+    $leave->update([
+        'status' => 'approved',
+        'decided_by' => auth()->id(),
+        'decided_at' => now('Asia/Jakarta')
+    ]);
+
+    $leave->user->profile?->markAsCuti();
+
+    $this->dispatch('toast', message: 'Pengajuan cuti disetujui.');
+}
+
+    /**
+     * Admin menolak
+     */
+   public function reject($id)
+{
+    $leave = TechnicianLeave::findOrFail($id);
+    $leave->update([
+        'status' => 'rejected',
+        'decided_by' => auth()->id(),
+        'decided_at' => now('Asia/Jakarta')
+    ]);
+
+    $leave->user->profile?->markAsActive();
+
+    $this->dispatch('toast', message: 'Pengajuan cuti ditolak.');
+}
+
+    /**
+     * Auto update → cuti selesai hari ini
+     */
+    public function autoUpdateLeaveStatus()
+    {
+        $today = Carbon::now()->toDateString();
+
+        $doneLeaves = TechnicianLeave::where('status','approved')
+            ->whereDate('end_date','<', $today)
+            ->get();
+
+        foreach ($doneLeaves as $leave) {
+            TechnicianProfile::updateOrCreate(
+                ['user_id' => $leave->user_id],
+                ['status' => 'aktif']
+            );
+        }
     }
 
     public function render()
     {
-        $q = TechnicianLeave::with('user')->latest();
+        $this->autoUpdateLeaveStatus();
 
-        if ($this->status !== 'all') $q->where('status',$this->status);
-        if ($this->search) {
-            $q->whereHas('user', fn($u)=>$u->where('name','like',"%{$this->search}%")
-                                          ->orWhere('email','like',"%{$this->search}%"));
+        $query = TechnicianLeave::with(['user','decider'])->orderBy('created_at','desc');
+
+        if ($this->statusFilter !== 'all') {
+            $query->where('status', $this->statusFilter);
         }
 
         return view('livewire.admin.tech-leaves.index', [
-            'rows' => $q->paginate(12),
+            'leaves' => $query->paginate(10),
         ])->layout('layouts.app', [
-            'title'=>'Permintaan Cuti Teknisi',
-            'header'=>'Operasional • Permintaan Cuti Teknisi',
+            'title' => 'Permintaan Cuti Teknisi',
+            'header' => 'Operasional • Permintaan Cuti Teknisi'
         ]);
     }
 }

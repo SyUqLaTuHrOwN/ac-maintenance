@@ -12,7 +12,7 @@ class TechnicianLeave extends Model
 
     protected $fillable = [
         'user_id','start_date','end_date','reason',
-        'proof_path','status','decided_at','decided_by',
+        'proof_path','status','decided_at','decided_by','proof_path',
     ];
 
     protected $casts = [
@@ -26,6 +26,13 @@ class TechnicianLeave extends Model
 
     /** scope: hanya yang disetujui */
     public function scopeApproved($q) { return $q->where('status','approved'); }
+    public function scopeActiveOn($q, $date)
+{
+    return $q->where('status','approved')
+        ->whereDate('start_date','<=',$date)
+        ->whereDate('end_date','>=',$date);
+}
+
 
     /** scope: tanggal t masuk di rentang cuti */
     public function scopeOverlaps($q, $date)

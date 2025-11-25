@@ -133,11 +133,13 @@ Route::middleware(['auth','verified'])->group(function () {
             Route::get('/requests', \App\Livewire\Admin\Requests\Index::class)->name('requests');
             Route::get('/tech-leaves', AdminTechLeaves::class)->name('tech-leaves');
             Route::get('/feedbacks', \App\Livewire\Admin\Feedbacks\Index::class)->name('feedbacks');
+            
 
 
 
             // laporan admin (verifikasi dsb)
             Route::get('/reports',      AdminReports::class)->name('reports');
+            Route::get('/history', \App\Livewire\Admin\History\Index::class)->name('history');
 
             Route::get('/users',        AdminUsers::class)->name('users');
             Route::get('/settings',     AdminSettings::class)->name('settings');
@@ -166,6 +168,7 @@ Route::middleware(['auth','verified'])->group(function () {
         Route::get('/units',      \App\Livewire\Client\Units\Index::class)->name('units');
         Route::get('/schedules',  \App\Livewire\Client\Schedules\Index::class)->name('schedules');
         Route::get('/reports',    \App\Livewire\Client\Reports\Index::class)->name('reports');
+        Route::get('history', \App\Livewire\Client\History\Index::class)->name('history');
         Route::get('/feedback',   \App\Livewire\Client\Feedback\Index::class)->name('feedback');
         Route::get('/requests',   \App\Livewire\Client\Requests\Index::class)->name('requests');
         Route::get('/complaints', \App\Livewire\Client\Complaints\Index::class)->name('complaints');

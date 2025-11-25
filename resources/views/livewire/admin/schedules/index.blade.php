@@ -1,8 +1,6 @@
 <div class="space-y-4">
 
-    {{-- ===============================
-         FILTER + FLASH MESSAGE
-       =============================== --}}
+    {{-- FILTER BAR --}}
     <div class="flex items-center justify-between mb-4">
         <div class="flex items-center gap-2">
 
@@ -28,160 +26,117 @@
                    wire:model.live.debounce.400ms="search"
                    class="rounded-xl border-gray-300"
                    placeholder="Cari catatan...">
-
-            {{-- FLASH --}}
-            @if(session('ok'))
-                <span class="text-sm text-emerald-700">{{ session('ok') }}</span>
-            @endif
-            @if(session('err'))
-                <span class="text-sm text-red-600">{{ session('err') }}</span>
-            @endif
         </div>
 
-        {{-- Button Create --}}
         <button wire:click="createNew"
                 class="rounded-xl bg-indigo-600 text-white px-4 py-2">
             + Buat Jadwal
         </button>
     </div>
 
-
-    {{-- ===============================
-            TABLE LIST JADWAL
-       =============================== --}}
+    {{-- TABLE --}}
     <div class="bg-white border rounded-2xl overflow-x-auto">
         <table class="w-full text-sm">
             <thead class="bg-gray-50">
-                <tr>
-                    <th class="p-3 text-left">Tanggal</th>
-                    <th class="p-3 text-left">Klien / Lokasi</th>
-                    <th class="p-3 text-left">Teknisi</th>
-                    <th class="p-3 text-left">Unit</th>
-                    <th class="p-3 text-left">Respon Klien</th>
-                    <th class="p-3 text-left">Status</th>
-                    <th class="p-3 text-left">Catatan</th>
-                    <th class="p-3 w-36">Aksi</th>
-                </tr>
+            <tr>
+                <th class="p-3 text-left">Tanggal</th>
+                <th class="p-3 text-left">Lokasi - Klien</th>
+                <th class="p-3 text-left">Unit AC</th>
+                <th class="p-3 text-left">Tim Teknisi</th>
+                <th class="p-3 text-left">Total Unit</th>
+                <th class="p-3 text-left">Kapasitas & Estimasi</th>
+                <th class="p-3 text-left">Progress</th>
+                <th class="p-3 text-left">Status</th>
+                <th class="p-3 w-40 text-left">Aksi</th>
+            </tr>
             </thead>
 
             <tbody>
-            @forelse($schedules as $s)
-                <tr class="border-t">
+            @foreach($schedules as $s)
+                @php
+                    // ambil total_units kolom, kalau kosong baru pakai accessor unit_count
+                    $totalUnits = $s->total_units ?: $s->unit_count;
+                @endphp
 
-                    {{-- TANGGAL --}}
+                <tr class="border-t align-top">
+
+                    {{-- Tanggal --}}
                     <td class="p-3">
-                        {{ $s->scheduled_at->format('d M Y H:i') }}
+                        {{ $s->scheduled_at?->timezone('Asia/Jakarta')->format('d M Y') }}
                     </td>
 
-                    {{-- KLIEN + LOKASI --}}
+                    {{-- Lokasi / Klien --}}
                     <td class="p-3">
-                        {{ $s->client?->company_name }} — {{ $s->location?->name }}
+                        <div class="font-medium">{{ $s->location?->name }}</div>
+                        <div class="text-xs text-gray-500">{{ $s->client?->company_name }}</div>
                     </td>
 
-                    {{-- TEKNISI --}}
+                    {{-- Unit --}}
                     <td class="p-3">
-                        {{ $s->technician?->name ?? '-' }}
-                    </td>
-
-                    {{-- UNIT --}}
-                    <td class="p-3">
-                        @php
-                            $labels = $s->units->map(function($u){
-                                return $u->serial_number
-                                    ? 'SN '.$u->serial_number
-                                    : trim($u->brand.' '.$u->model);
-                            });
-                        @endphp
-
-                        @if($labels->isEmpty())
-                            <span class="text-gray-400">—</span>
-                        @else
-                            {{ $labels->take(3)->join(', ') }}
-                            @if($labels->count() > 3)
-                                +{{ $labels->count() - 3 }} lagi
-                            @endif
-                        @endif
-                    </td>
-
-                    {{-- RESPON KLIEN --}}
-                    <td class="p-3">
-                        @php
-                            $badgeColor = match($s->client_response) {
-                                'confirmed'            => 'bg-emerald-100 text-emerald-700',
-                                'reschedule_requested' => 'bg-amber-100 text-amber-700',
-                                'cancelled_by_client'  => 'bg-red-100 text-red-700',
-                                default                => 'bg-gray-100 text-gray-700',
-                            };
-                        @endphp
-
-                        <span class="px-2 py-1 rounded {{ $badgeColor }}">
-                            {{ $s->client_response_label }}
-                        </span>
-
-                        @if($s->has_pending_reschedule)
-                            <div class="text-xs text-gray-500 mt-1">
-                                Usulan:
-                                <strong>{{ $s->client_requested_date?->format('d M Y H:i') }}</strong>
-
-                                @if($s->client_response_note)
-                                    <div class="mt-0.5 italic">
-                                        “{{ $s->client_response_note }}”
-                                    </div>
-                                @endif
+                        @forelse($s->units as $u)
+                            <div class="text-xs">
+                                <strong>{{ $u->brand }} {{ $u->model }}</strong>
+                                — {{ $u->type }},
+                                {{ number_format($u->capacity_btu) }} BTU
+                                ({{ $u->units_count }} unit)
                             </div>
+                        @empty
+                            <span class="text-gray-400">—</span>
+                        @endforelse
+                    </td>
+
+                    {{-- Teknisi --}}
+                    <td class="p-3">
+                        @if($s->technician)
+                            <div class="font-medium">{{ $s->technician->name }}</div>
+                            <div class="text-xs text-gray-500">
+                                {{ $s->technician->technicianProfile?->member_1_name ?? '-' }} /
+                                {{ $s->technician->technicianProfile?->member_2_name ?? '-' }}
+                            </div>
+                        @else
+                            <span class="text-gray-400">Belum ditentukan</span>
                         @endif
                     </td>
 
-                    {{-- STATUS --}}
+                    {{-- Total Unit --}}
+                    <td class="p-3">{{ $totalUnits ?: '-' }}</td>
+
+                    {{-- Kapasitas & Estimasi --}}
+                    <td class="p-3">
+                        {{ $s->capacity_text }}
+                        <div class="text-xs text-gray-500">
+                            {{ $s->estimasi_text }}
+                        </div>
+                    </td>
+
+                    {{-- Progress --}}
+                    <td class="p-3">{{ $s->progress_text }}</td>
+
+                    {{-- Status --}}
                     <td class="p-3">
                         <span class="px-2 py-1 rounded bg-gray-100">
                             {{ $s->status }}
                         </span>
                     </td>
 
-                    {{-- CATATAN --}}
+                    {{-- Aksi --}}
                     <td class="p-3">
-                        {{ \Illuminate\Support\Str::limit($s->notes, 40) }}
-                    </td>
-
-                    {{-- AKSI --}}
-                    <td class="p-3">
-                        <div class="flex flex-wrap gap-2">
-
+                        <div class="flex gap-2 flex-wrap">
                             <button class="px-3 py-1 rounded-lg border"
                                     wire:click="edit({{ $s->id }})">
                                 Edit
                             </button>
 
                             <button class="px-3 py-1 rounded-lg border text-red-600"
-                                    onclick="return confirm('Hapus jadwal?')"
-                                    wire:click="delete({{ $s->id }})">
+                                    wire:click="delete({{ $s->id }})"
+                                    onclick="return confirm('Hapus jadwal?')">
                                 Hapus
                             </button>
-
-                            @if($s->has_pending_reschedule)
-                                <button class="px-3 py-1 rounded-lg border bg-emerald-600 text-white"
-                                        wire:click="approveReschedule({{ $s->id }})">
-                                    Setujui Usulan
-                                </button>
-
-                                <button class="px-3 py-1 rounded-lg border bg-red-600 text-white"
-                                        wire:click="rejectReschedule({{ $s->id }})">
-                                    Tolak
-                                </button>
-                            @endif
                         </div>
                     </td>
 
                 </tr>
-
-            @empty
-                <tr>
-                    <td class="p-3" colspan="8">
-                        Belum ada data.
-                    </td>
-                </tr>
-            @endforelse
+            @endforeach
             </tbody>
         </table>
     </div>
@@ -190,36 +145,25 @@
         {{ $schedules->links() }}
     </div>
 
-
-    {{-- ===============================
-            DRAWER FORM
-       =============================== --}}
+    {{-- FORM DRAWER --}}
     @if(!is_null($editingId))
-
-        {{-- Overlay --}}
         <div class="fixed inset-0 bg-black/30 z-40"
              wire:click="$set('editingId', null)">
         </div>
 
-        {{-- Drawer --}}
         <div class="fixed right-0 top-0 bottom-0 w-full max-w-lg bg-white z-50 border-l overflow-y-auto">
 
-            {{-- HEADER --}}
             <div class="p-6 border-b flex items-center justify-between">
                 <div class="font-semibold">
                     {{ $editingId ? 'Edit Jadwal' : 'Jadwal Baru' }}
                 </div>
                 <button class="text-gray-500"
-                        wire:click="$set('editingId', null)">
-                    ✕
-                </button>
+                        wire:click="$set('editingId', null)">✕</button>
             </div>
 
-            {{-- FORM --}}
-            <form wire:submit.prevent="save"
-                  class="p-6 grid gap-4">
+            <form wire:submit.prevent="save" class="p-6 grid gap-4">
 
-                {{-- KLIEN --}}
+                {{-- Klien --}}
                 <div>
                     <label class="text-sm">Klien</label>
                     <select class="mt-1 w-full rounded-xl border-gray-300"
@@ -229,12 +173,10 @@
                             <option value="{{ $c->id }}">{{ $c->company_name }}</option>
                         @endforeach
                     </select>
-                    @error('client_id')
-                        <p class="text-sm text-red-600">{{ $message }}</p>
-                    @enderror
+                    @error('client_id') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- LOKASI --}}
+                {{-- Lokasi --}}
                 <div>
                     <label class="text-sm">Lokasi</label>
                     <select class="mt-1 w-full rounded-xl border-gray-300"
@@ -244,71 +186,88 @@
                             <option value="{{ $l->id }}">{{ $l->name }}</option>
                         @endforeach
                     </select>
-                    @error('location_id')
-                        <p class="text-sm text-red-600">{{ $message }}</p>
-                    @enderror
+                    @error('location_id') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- UNIT --}}
+                {{-- Unit --}}
                 @if($location_id)
-                <div>
-                    <label class="text-sm">Unit AC (pilih satu/lebih)</label>
-                    <div class="mt-2 max-h-52 overflow-y-auto border rounded-xl p-3 space-y-2">
-
-                        @forelse($unitsForLocation as $u)
-                            <label class="flex items-center gap-3 text-sm">
-                                <input type="checkbox"
-                                       class="rounded border-gray-300"
-                                       value="{{ $u->id }}"
-                                       wire:model="unit_ids">
-                                <span>
-                                    {{ $u->brand }} {{ $u->model }}
-                                    <span class="text-gray-500">
-                                        — SN: {{ $u->serial_number ?? $u->id }}
+                    <div>
+                        <label class="text-sm">Unit AC</label>
+                        <div class="mt-2 max-h-52 overflow-y-auto border rounded-xl p-3 space-y-2">
+                            @forelse($unitsForLocation as $u)
+                                <label class="flex items-center gap-3 text-sm">
+                                    <input type="checkbox"
+                                           class="rounded border-gray-300"
+                                           value="{{ $u->id }}"
+                                           wire:model="unit_ids">
+                                    <span>
+                                        <span class="font-medium">{{ $u->brand }} {{ $u->model }}</span>
+                                        <span class="text-gray-500">
+                                            — {{ $u->type }},
+                                            {{ number_format($u->capacity_btu) }} BTU
+                                            ({{ $u->units_count }} unit)
+                                        </span>
                                     </span>
-                                </span>
-                            </label>
-                        @empty
-                            <div class="text-sm text-gray-500">
-                                Belum ada unit pada lokasi ini.
-                            </div>
-                        @endforelse
+                                </label>
+                            @empty
+                                <div class="text-sm text-gray-500">
+                                    Belum ada unit pada lokasi ini.
+                                </div>
+                            @endforelse
+                        </div>
                     </div>
-
-                    @error('unit_ids')
-                        <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
-                    @enderror
-                </div>
                 @endif
 
-                {{-- TANGGAL --}}
+                {{-- Tanggal --}}
                 <div>
-                    <label class="text-sm">Waktu Kunjungan</label>
-                    <input type="datetime-local"
+                    <label class="text-sm">Tanggal Maintenance</label>
+                    <input type="date"
                            class="mt-1 w-full rounded-xl border-gray-300"
-                           wire:model.defer="scheduled_at"
-                           required>
-                    @error('scheduled_at')
-                        <p class="text-sm text-red-600">{{ $message }}</p>
-                    @enderror
+                           wire:model.defer="scheduled_at" required>
+                    @error('scheduled_at') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- TEKNISI --}}
-                <div class="space-y-1">
-                    <label class="text-sm text-slate-600">Teknisi (opsional)</label>
-                    <select wire:model="assigned_user_id"
-                            class="mt-1 w-full rounded-xl border-gray-300">
-                        <option value="">— pilih teknisi —</option>
+                {{-- Teknisi --}}
+                <div>
+                    <label class="text-sm">Tim Teknisi</label>
+                    <select class="mt-1 w-full rounded-xl border-gray-300"
+                            wire:model="assigned_user_id">
+                        <option value="">— pilih tim teknisi —</option>
                         @foreach($techs as $t)
                             <option value="{{ $t->id }}">{{ $t->name }}</option>
                         @endforeach
                     </select>
-                    @error('assigned_user_id')
-                        <div class="text-rose-600 text-xs mt-1">{{ $message }}</div>
-                    @enderror
+                    @error('assigned_user_id') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- STATUS --}}
+                {{-- Total unit, kapasitas, estimasi --}}
+                <div class="grid grid-cols-3 gap-3">
+                    <div>
+                        <label class="text-sm">Total Unit</label>
+                        <input type="number"
+                               class="mt-1 w-full rounded-xl border-gray-300"
+                               wire:model.defer="total_units">
+                        @error('total_units') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div>
+                        <label class="text-sm">Kapasitas / hari</label>
+                        <input type="number"
+                               class="mt-1 w-full rounded-xl border-gray-300"
+                               wire:model.defer="daily_capacity">
+                        @error('daily_capacity') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
+                    </div>
+
+                    <div>
+                        <label class="text-sm">Estimasi (hari)</label>
+                        <input type="number"
+                               class="mt-1 w-full rounded-xl border-gray-300"
+                               wire:model.defer="estimated_days"
+                               readonly>
+                    </div>
+                </div>
+
+                {{-- Status --}}
                 <div>
                     <label class="text-sm">Status</label>
                     <select class="mt-1 w-full rounded-xl border-gray-300"
@@ -318,17 +277,18 @@
                         <option value="selesai_servis">selesai_servis</option>
                         <option value="selesai">selesai</option>
                     </select>
+                    @error('status') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- CATATAN --}}
+                {{-- Catatan --}}
                 <div>
                     <label class="text-sm">Catatan</label>
                     <textarea rows="3"
                               class="mt-1 w-full rounded-xl border-gray-300"
                               wire:model.defer="notes"></textarea>
+                    @error('notes') <div class="text-xs text-red-600 mt-1">{{ $message }}</div> @enderror
                 </div>
 
-                {{-- BUTTON --}}
                 <div class="flex justify-end gap-2">
                     <button type="button"
                             class="px-4 py-2 rounded-xl border"
@@ -340,9 +300,9 @@
                         Simpan
                     </button>
                 </div>
+
             </form>
         </div>
-
     @endif
 
 </div>

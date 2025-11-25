@@ -58,6 +58,7 @@
           <x-nav.section title="Operasional" />
           <x-nav.link :href="route('admin.schedules')"   :active="request()->routeIs('admin.schedules')"   icon="calendar">Jadwal Maintenance</x-nav.link>
           <x-nav.link :href="route('admin.reports')"     :active="request()->routeIs('admin.reports')"     icon="doc">Laporan</x-nav.link>
+          <x-nav.link :href="route('admin.history')" :active="request()->routeIs('admin.history')" icon="doc">History</x-nav.link>
           <x-nav.link :href="route('admin.requests')"    :active="request()->routeIs('admin.requests')"    icon="inbox">Permintaan</x-nav.link>
           <x-nav.link :href="route('admin.technicians')" :active="request()->routeIs('admin.technicians')" icon="wrench">Teknisi</x-nav.link>
           <x-nav.link :href="route('admin.tech-leaves')" :active="request()->routeIs('admin.tech-leaves')" icon="inbox">Permintaan Cuti Teknisi</x-nav.link>
@@ -75,7 +76,7 @@
           <x-nav.link :href="route('teknisi.dashboard')" :active="request()->routeIs('teknisi.dashboard')" icon="gauge">Dashboard</x-nav.link>
           <x-nav.link :href="route('teknisi.tasks')"     :active="request()->routeIs('teknisi.tasks')"     icon="calendar">Tugas Saya</x-nav.link>
           <x-nav.link :href="route('teknisi.reports')"   :active="request()->routeIs('teknisi.reports')"   icon="doc">Laporan</x-nav.link>
-          <x-nav.link :href="route('teknisi.history')"   :active="request()->routeIs('teknisi.history')"   icon="clock">Riwayat</x-nav.link>
+          <x-nav.link :href="route('teknisi.history')"   :active="request()->routeIs('teknisi.history')"   icon="doc">Riwayat</x-nav.link>
           <x-nav.link :href="route('teknisi.feedbacks')" :active="request()->routeIs('teknisi.feedbacks')" icon="star">
   Ulasan Pelanggan
 </x-nav.link>
@@ -88,6 +89,7 @@
           <x-nav.link :href="route('client.units')"      :active="request()->routeIs('client.units')"      icon="cpu">Unit AC Saya</x-nav.link>
           <x-nav.link :href="route('client.schedules')"  :active="request()->routeIs('client.schedules')"  icon="calendar">Jadwal Maintenance</x-nav.link>
           <x-nav.link :href="route('client.reports')"    :active="request()->routeIs('client.reports')"    icon="doc">Laporan</x-nav.link>
+           <x-nav.link :href="route('client.history')"    :active="request()->routeIs('client.history')"    icon="doc">History</x-nav.link>
           <x-nav.link :href="route('client.feedback')"   :active="request()->routeIs('client.feedback')"   icon="chat">Feedback</x-nav.link>
           <x-nav.link :href="route('client.requests')"   :active="request()->routeIs('client.requests')"   icon="inbox">Permintaan Maintenance</x-nav.link>
           <x-nav.link :href="route('client.complaints')" :active="request()->routeIs('client.complaints')" icon="alert">Komplain</x-nav.link>
@@ -177,6 +179,7 @@
             <x-nav.link :href="route('client.units')"      :active="request()->routeIs('client.units')"      icon="cpu">Unit AC Saya</x-nav.link>
             <x-nav.link :href="route('client.schedules')"  :active="request()->routeIs('client.schedules')"  icon="calendar">Jadwal Maintenance</x-nav.link>
             <x-nav.link :href="route('client.reports')"    :active="request()->routeIs('client.reports')"    icon="doc">Laporan</x-nav.link>
+              <x-nav.link :href="route('client.history')"    :active="request()->routeIs('client.history')"    icon="doc">history</x-nav.link>
             <x-nav.link :href="route('client.feedback')"   :active="request()->routeIs('client.feedback')"   icon="chat">Feedback</x-nav.link>
             <x-nav.link :href="route('client.requests')"   :active="request()->routeIs('client.requests')"   icon="inbox">Permintaan Maintenance</x-nav.link>
             <x-nav.link :href="route('client.complaints')" :active="request()->routeIs('client.complaints')" icon="alert">Komplain</x-nav.link>

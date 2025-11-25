@@ -3,199 +3,189 @@
 namespace App\Livewire\Teknisi\Tasks;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use Livewire\WithFileUploads;
 use App\Models\MaintenanceSchedule;
 use App\Models\MaintenanceReport;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 
 class Index extends Component
 {
-    use WithFileUploads;
+    use WithPagination, WithFileUploads;
 
-    public string $from_date;
-    public string $to_date;
+    // Modal laporan
+    public ?int $reportScheduleId = null;
+    public ?int $units_done = null;
 
-    // modal upload
-    public ?int $selectedScheduleId = null;
-    public $start_photo;
-    public $end_photo;
-    public $receipt_file;
-    public string $note = '';
+    public array $photos_start = [];  // foto mulai (multiple)
+    public array $photos_finish = []; // foto selesai (multiple)
+    public array $photos_extra = [];  // foto tambahan (multiple)
+    public $invoice;                  // 1 file nota (optional)
 
-    public function mount(): void
+    public ?string $notes = null;
+
+    protected $paginationTheme = 'tailwind';
+
+    /* ==========================
+       AKSI: MULAI TUGAS
+    =========================== */
+
+    public function startTask(int $id): void
     {
-        // default ke bulan ini
-        $this->from_date = now('Asia/Jakarta')->startOfMonth()->format('Y-m-d');
-        $this->to_date   = now('Asia/Jakarta')->endOfMonth()->format('Y-m-d');
-    }
+        $schedule = MaintenanceSchedule::findOrFail($id);
 
-    public function monthThis(): void
-    {
-        $this->from_date = now('Asia/Jakarta')->startOfMonth()->format('Y-m-d');
-        $this->to_date   = now('Asia/Jakarta')->endOfMonth()->format('Y-m-d');
-    }
-
-    /** Rentang tanggal dgn zona waktu Jakarta */
-    protected function range(): array
-    {
-        return [
-            Carbon::parse($this->from_date, 'Asia/Jakarta')->startOfDay(),
-            Carbon::parse($this->to_date, 'Asia/Jakarta')->endOfDay(),
-        ];
-    }
-
-    /** Ambil daftar tugas teknisi (aktif) + relasi yang dibutuhkan */
-    public function getSchedules()
-    {
-        [$from, $to] = $this->range();
-
-        return MaintenanceSchedule::with([
-                'client:id,company_name',
-                'location:id,name',
-                'report:id,schedule_id,status,started_at,finished_at,notes',
-                'units:id,location_id,brand,model,serial_number',
-            ])
-            ->forTechnician(auth()->id())   // scope di Model
-            ->active()                      // scope di Model
-            ->betweenDateRange($from, $to)  // scope di Model
-            ->orderBy('scheduled_at')
-            ->get();
-    }
-
-    /** Mulai pekerjaan – hanya saat waktunya (guard via Model::canStart) */
-    public function start(int $scheduleId): void
-    {
-        $s = MaintenanceSchedule::with('report')->findOrFail($scheduleId);
-
-        if (!$s->canStart()) {
-            $this->dispatch('toast', message: 'Belum waktu pelaksanaan.', type: 'err');
+        if ($schedule->status !== 'menunggu') {
             return;
         }
 
-        $report = MaintenanceReport::firstOrCreate(
-            ['schedule_id' => $s->id],
-            ['technician_id' => auth()->id(), 'status' => 'draft']
-        );
-
-        if (!$report->started_at) {
-            $report->started_at = now('Asia/Jakarta');
-            $report->save();
-        }
-
-        if ($s->status !== \App\Models\MaintenanceSchedule::ST_RUN) {
-            $s->status = \App\Models\MaintenanceSchedule::ST_RUN; // "dalam_proses"
-            $s->save();
-        }
-
-        $this->dispatch('toast', message: 'Pekerjaan dimulai.', type: 'ok');
-    }
-
-    /** Selesaikan pekerjaan – butuh minimal sudah start */
-    public function finish(int $scheduleId): void
-    {
-        $s = MaintenanceSchedule::with('report')->findOrFail($scheduleId);
-
-        $report = MaintenanceReport::firstOrCreate(
-            ['schedule_id' => $s->id],
-            ['technician_id' => auth()->id(), 'status' => 'draft', 'started_at' => now('Asia/Jakarta')]
-        );
-
-        if (!$report->started_at) {
-            $this->dispatch('toast', message: 'Belum memulai pekerjaan.', type: 'err');
+        // Pastikan minimal sudah hari H
+        $today = now('Asia/Jakarta')->toDateString();
+        if ($today < $schedule->scheduled_at->toDateString()) {
+            session()->flash('err', 'Belum waktunya memulai tugas.');
             return;
         }
 
-        $report->update([
-            'finished_at' => now('Asia/Jakarta'),
-            'status'      => 'submitted', // menunggu verifikasi admin
-            'notes'       => trim($this->note) ?: $report->notes,
+        $schedule->update([
+            'status' => 'dalam_proses',
         ]);
 
-        $s->update(['status' => \App\Models\MaintenanceSchedule::ST_DONE]); // "selesai_servis"
-
-        // bersihkan form/modal
-        $this->reset(['selectedScheduleId','start_photo','end_photo','receipt_file','note']);
-
-        $this->dispatch('toast', message: 'Tugas ditandai selesai.', type: 'ok');
+        session()->flash('ok', 'Tugas dimulai.');
     }
 
-    /* ================= Upload berkas ================= */
+    /* ==========================
+       BUKA MODAL LAPORAN
+    =========================== */
 
-    public function openUpload(int $scheduleId): void
+    public function openReportModal(int $scheduleId): void
     {
-        $this->selectedScheduleId = $scheduleId;
-        $this->reset(['start_photo','end_photo','receipt_file','note']);
-        $this->dispatch('open-upload'); // dibaca Alpine di Blade
+        $this->reportScheduleId = $scheduleId;
+        $this->resetReportForm();
     }
 
-    public function saveStartPhoto(): void
+    private function resetReportForm(): void
     {
-        $this->validate(['start_photo' => 'required|image|max:4096']);
-
-        $s = MaintenanceSchedule::findOrFail($this->selectedScheduleId);
-        $path = $this->start_photo->store('reports', 'public');
-
-        $report = MaintenanceReport::firstOrCreate(
-            ['schedule_id' => $s->id],
-            ['technician_id' => auth()->id(), 'status' => 'draft']
-        );
-
-        $report->update([
-            'start_photo_path' => $path,
-            'started_at'       => $report->started_at ?: now('Asia/Jakarta'),
+        $this->reset([
+            'units_done',
+            'photos_start',
+            'photos_finish',
+            'photos_extra',
+            'invoice',
+            'notes',
         ]);
-
-        $this->reset('start_photo');
-        $this->dispatch('close-upload');
-        $this->dispatch('toast', message: 'Foto mulai tersimpan.', type: 'ok');
     }
 
-    public function saveEndPhoto(): void
+    /* ==========================
+       KIRIM LAPORAN HARIAN
+    =========================== */
+
+    public function submitReport(): void
     {
-        $this->validate(['end_photo' => 'required|image|max:4096']);
+        if (!$this->units_done) {
+    session()->flash('err', 'Jumlah unit selesai wajib diisi.');
+    return;
+}
 
-        $s = MaintenanceSchedule::findOrFail($this->selectedScheduleId);
-        $path = $this->end_photo->store('reports', 'public');
+      $this->validate([
+    'reportScheduleId' => ['required','integer','exists:maintenance_schedules,id'],
+    'units_done' => ['required','integer','min:1'],    //<— WAJIB
+    'photos_start.*' => ['nullable','image','max:4096'],
+    'photos_finish.*' => ['nullable','image','max:4096'],
+    'photos_extra.*' => ['nullable','image','max:4096'],
+    'invoice' => ['nullable','file','max:5120'],
+    'notes' => ['nullable','string'],
+]);
 
-        $report = MaintenanceReport::firstOrCreate(
-            ['schedule_id' => $s->id],
-            ['technician_id' => auth()->id(), 'status' => 'draft']
-        );
+        $schedule = MaintenanceSchedule::with('units')->findOrFail($this->reportScheduleId);
 
-        $report->update(['end_photo_path' => $path]);
+        // Hitung total unit & sisa
+        $totalUnits = $schedule->total_units ?? $schedule->units->sum('units_count');
+        $current    = $schedule->progress_units ?? 0;
+        $remaining  = max(0, $totalUnits - $current);
 
-        $this->reset('end_photo');
-        $this->dispatch('close-upload');
-        $this->dispatch('toast', message: 'Foto selesai tersimpan.', type: 'ok');
+        if ($remaining <= 0) {
+            session()->flash('err', 'Semua unit sudah selesai untuk jadwal ini.');
+            $this->reportScheduleId = null;
+            return;
+        }
+
+        $unitsDone = min($this->units_done, $remaining);
+        if ($unitsDone <= 0) {
+            session()->flash('err', 'Jumlah unit yang dilaporkan tidak valid.');
+            return;
+        }
+
+        $today   = now('Asia/Jakarta')->toDateString();
+        $baseDir = "tasks/{$schedule->id}/{$today}";
+
+        $startPaths  = [];
+        $finishPaths = [];
+        $extraPaths  = [];
+        $invoicePath = null;
+
+        foreach ($this->photos_start as $file) {
+            $startPaths[] = $file->store($baseDir.'/start', 'public');
+        }
+
+        foreach ($this->photos_finish as $file) {
+            $finishPaths[] = $file->store($baseDir.'/finish', 'public');
+        }
+
+        foreach ($this->photos_extra as $file) {
+            $extraPaths[] = $file->store($baseDir.'/extra', 'public');
+        }
+
+        if ($this->invoice) {
+            $invoicePath = $this->invoice->store($baseDir.'/invoice', 'public');
+        }
+
+        // Simpan laporan harian
+        MaintenanceReport::create([
+    'schedule_id'   => $schedule->id,
+    'user_id'       => auth()->id(),
+    'report_date' => now('Asia/Jakarta'),
+    'units_done'    => $unitsDone,
+    'photos_start'  => $startPaths,
+    'photos_finish' => $finishPaths,
+    'photos_extra'  => $extraPaths,
+    'invoice_path'  => $invoicePath,
+    'notes'         => $this->notes,
+    'status'        => 'submitted',
+]);
+
+
+        // Update progress jadwal
+        $schedule->progress_units = $current + $unitsDone;
+
+        if ($schedule->progress_units >= $totalUnits) {
+            $schedule->status = 'selesai_servis';
+        }
+
+        $schedule->save();
+
+        $this->reportScheduleId = null;
+        $this->resetReportForm();
+        session()->flash('ok', "Laporan tersimpan. {$unitsDone} unit tercatat selesai hari ini.");
     }
 
-    public function saveReceipt(): void
-    {
-        $this->validate(['receipt_file' => 'required|image|max:4096']);
-
-        $s = MaintenanceSchedule::findOrFail($this->selectedScheduleId);
-        $path = $this->receipt_file->store('reports', 'public');
-
-        $report = MaintenanceReport::firstOrCreate(
-            ['schedule_id' => $s->id],
-            ['technician_id' => auth()->id(), 'status' => 'draft']
-        );
-
-        $report->update(['receipt_path' => $path]);
-
-        $this->reset('receipt_file');
-        $this->dispatch('close-upload');
-        $this->dispatch('toast', message: 'Nota/struk tersimpan.', type: 'ok');
-    }
+    /* ==========================
+       RENDER
+    =========================== */
 
     public function render()
     {
-        $schedules = $this->getSchedules();
+        $user = auth()->user();
 
-        return view('livewire.teknisi.tasks.index', compact('schedules'))
-            ->layout('layouts.app', [
-                'title'  => 'Tugas Saya',
-                'header' => 'Teknisi • Tugas Bulanan',
-            ]);
+        $tasks = MaintenanceSchedule::with(['client','location','units'])
+            ->where('assigned_user_id', $user->id)
+            ->whereIn('status', ['menunggu','dalam_proses'])
+            ->orderBy('scheduled_at')
+            ->paginate(10);
+
+        return view('livewire.teknisi.tasks.index', [
+            'tasks' => $tasks,
+        ])->layout('layouts.app', [
+            'title'  => 'Tugas Teknisi',
+            'header' => 'Operasional • Tugas Teknisi',
+        ]);
     }
 }

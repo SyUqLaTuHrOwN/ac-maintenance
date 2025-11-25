@@ -3,33 +3,43 @@
 namespace App\Livewire\Client;
 
 use Livewire\Component;
-use App\Models\Client;
 use App\Models\MaintenanceSchedule;
-use App\Models\Location;
-use App\Models\UnitAc;
+use App\Models\MaintenanceReport;
+use Illuminate\Support\Facades\Auth;
 
 class Dashboard extends Component
 {
     public function render()
     {
-        $user = auth()->user();
-        $client = Client::where('user_id',$user->id)->first();
+        $client = Auth::user()->client;
 
-        $units = UnitAc::whereIn('location_id', Location::where('client_id', $client?->id)->pluck('id'))->count();
+        // Total unit AC milik client
+        $units = $client->units()->count();
 
-        $upcoming = MaintenanceSchedule::with(['location'])
-            ->where('client_id', $client?->id)
-            ->where('scheduled_at','>=', now())
-            ->orderBy('scheduled_at')->limit(5)->get();
+        // Jadwal maintenance mendatang
+        $upcoming = MaintenanceSchedule::where('client_id', $client->id)
+            ->whereDate('scheduled_at', '>=', now('Asia/Jakarta'))
+            ->orderBy('scheduled_at')
+            ->take(5)
+            ->get();
 
-        $latestReports = MaintenanceSchedule::with('report')
-            ->where('client_id', $client?->id)
-            ->latest('scheduled_at')->limit(5)->get();
+        // 🔥 FIX: pakai 'reports' (bukan report)
+        // Ambil laporan terbaru dari jadwal client
+        $latestReports = MaintenanceSchedule::with(['reports', 'location'])
+            ->where('client_id', $client->id)
+            ->whereHas('reports')
+            ->orderByDesc('scheduled_at')
+            ->take(5)
+            ->get();
 
-        return view('livewire.client.dashboard', compact('client','units','upcoming','latestReports'))
-            ->layout('layouts.app', [
-                'title' => 'Dashboard Client',
-                'header' => 'Dashboard Client',
-            ]);
+        return view('livewire.client.dashboard', compact(
+            'client',
+            'units',
+            'upcoming',
+            'latestReports'
+        ))->layout('layouts.app', [
+            'title'  => 'Dashboard',
+            'header' => 'Client • Dashboard'
+        ]);
     }
 }

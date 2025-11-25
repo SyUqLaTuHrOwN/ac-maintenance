@@ -8,17 +8,14 @@ class Index extends Component
 {
     public function render()
     {
-        // Ambil user + relasi profil teknisi
         $user = auth()->user()->load('technicianProfile');
 
         return view('livewire.teknisi.profile.index', [
-            'user' => $user,
+            'user'  => $user,
+            'profile' => $user->technicianProfile,
         ])->layout('layouts.app', [
-            'title'  => 'Profil Teknisi',
-            'header' => 'Teknisi • Profil',
+            'title'  => 'Profil Tim Teknisi',
+            'header' => 'Teknisi • Profil Tim',
         ]);
     }
-
-    // Penting: hilangkan semua method penyimpanan/ubah di komponen ini.
-    // Jika sebelumnya ada method save/update, HAPUS.
 }

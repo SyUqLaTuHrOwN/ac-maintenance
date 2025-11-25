@@ -7,89 +7,65 @@ use Livewire\WithPagination;
 use App\Models\User;
 use App\Models\TechnicianProfile;
 use App\Support\Role;
+use Illuminate\Support\Carbon;
 
 class Index extends Component
 {
     use WithPagination;
 
-    public $search = '';
-    public $showModal = false;
-    public $editing_id = null;
+    public string $search = '';
+    public string $statusFilter = 'all';
+    public bool $showModal = false;
+    public ?int $editingId = null;
 
-    public $name, $email, $phone, $address;
-    public $is_active = true;
-
-    protected $rules = [
-        'name'      => 'required|string|min:3',
-        'email'     => 'required|email',
-        'phone'     => 'nullable|string|max:50',
-        'address'   => 'nullable|string|max:255',
-        'is_active' => 'boolean',
+    public array $form = [
+        'team_name'      => '',
+        'leader_email'   => '',
+        'leader_phone'   => '',
+        'member_1_name'  => '',
+        'member_2_name'  => '',
+        'status'         => 'aktif',
+        'is_active'      => true,
+        'address'        => '',
     ];
 
-    public function render()
-    {
-        $techs = User::with(['technicianProfile', 'approvedLeaves'])
-            ->where('role', Role::TEKNISI)
-            ->where(function($q){
-                $q->where('name','like',"%{$this->search}%")
-                  ->orWhere('email','like',"%{$this->search}%");
-            })
-            ->orderBy('name')
-            ->paginate(10);
+    protected $rules = [
+        'form.team_name'     => 'required|string|max:190',
+        'form.leader_email'  => 'required|email',
+        'form.leader_phone'  => 'nullable|string|max:50',
+        'form.member_1_name' => 'nullable|string|max:190',
+        'form.member_2_name' => 'nullable|string|max:190',
+        'form.status'        => 'required|in:aktif,sedang_bertugas,cuti,nonaktif',
+        'form.is_active'     => 'boolean',
+        'form.address'       => 'nullable|string',
+    ];
 
-        return view('livewire.admin.technicians.index', compact('techs'))
-            ->layout('layouts.app', [
-                'title' => 'Teknisi',
-                'header' => 'Operasional • Teknisi'
-            ]);
-    }
-
-    /** 
-     * Status teknisi otomatis:
-     * - nonaktif → jika is_active == false
-     * - cuti → jika hari ini masuk rentang tanggal cuti
-     * - aktif → default
-     */
-    public function getStatus($tech)
-    {
-        // nonaktif
-        if (!$tech->technicianProfile || !$tech->technicianProfile->is_active) {
-            return 'nonaktif';
-        }
-
-        // cuti
-        $today = now()->toDateString();
-        $hasLeaveToday = $tech->approvedLeaves()
-            ->where('start_date', '<=', $today)
-            ->where('end_date', '>=', $today)
-            ->exists();
-
-        if ($hasLeaveToday) {
-            return 'cuti';
-        }
-
-        // aktif
-        return 'aktif';
-    }
+    public function updatingSearch() { $this->resetPage(); }
+    public function updatingStatusFilter() { $this->resetPage(); }
 
     public function openCreate()
     {
-        $this->reset(['editing_id','name','email','phone','address','is_active']);
-        $this->is_active = true;
+        $this->reset('form', 'editingId');
+        $this->form['status'] = 'aktif';
+        $this->form['is_active'] = true;
         $this->showModal = true;
     }
 
-    public function openEdit($userId)
+    public function openEdit(int $id)
     {
-        $u = User::with('technicianProfile')->findOrFail($userId);
+        $p = TechnicianProfile::with('user')->findOrFail($id);
 
-        $this->editing_id = $u->id;
-        $this->name       = $u->name;
-        $this->email      = $u->email;
-        $this->phone      = $u->technicianProfile->phone ?? '';
-        $this->address    = $u->technicianProfile->address ?? '';
-        $this->is_active  = (bool)($u->technicianProfile->is_active ?? true);
+        $this->editingId = $id;
+        $this->form = [
+            'team_name'     => $p->team_name,
+            'leader_email'  => $p->user->email,
+            'leader_phone'  => $p->phone,
+            'member_1_name' => $p->member_1_name,
+            'member_2_name' => $p->member_2_name,
+            'status'        => $p->status,
+            'is_active'     => $p->is_active,
+            'address'       => $p->address,
+        ];
 
         $this->showModal = true;
     }
@@ -98,43 +74,96 @@ class Index extends Component
     {
         $this->validate();
 
-        $user = $this->editing_id
-            ? User::where('role', Role::TEKNISI)->findOrFail($this->editing_id)
-            : new User(['role' => Role::TEKNISI]);
+        if ($this->editingId) {
+            // Update
+            $p = TechnicianProfile::with('user')->findOrFail($this->editingId);
 
-        $user->name  = $this->name;
-        $user->email = $this->email;
+            $p->user->update([
+                'name'  => $this->form['team_name'],
+                'email' => $this->form['leader_email'],
+            ]);
 
-        if (! $user->exists) {
-            $user->password = bcrypt('password');
+            $p->update([
+                'team_name'     => $this->form['team_name'],
+                'phone'         => $this->form['leader_phone'],
+                'member_1_name' => $this->form['member_1_name'],
+                'member_2_name' => $this->form['member_2_name'],
+                'status'        => $this->form['status'],
+                'is_active'     => $this->form['is_active'],
+                'address'       => $this->form['address'],
+            ]);
+
+            $msg = "Tim teknisi diperbarui.";
+        } else {
+            // Create
+            $u = User::create([
+                'name'     => $this->form['team_name'],
+                'email'    => $this->form['leader_email'],
+                'password' => bcrypt('password123'),
+                'role'     => Role::TEKNISI,
+            ]);
+
+            TechnicianProfile::create([
+                'user_id'       => $u->id,
+                'team_name'     => $this->form['team_name'],
+                'phone'         => $this->form['leader_phone'],
+                'member_1_name' => $this->form['member_1_name'],
+                'member_2_name' => $this->form['member_2_name'],
+                'status'        => $this->form['status'],
+                'is_active'     => $this->form['is_active'],
+                'address'       => $this->form['address'],
+            ]);
+
+            $msg = "Tim teknisi dibuat.";
         }
-        $user->save();
 
-        $profile = $user->technicianProfile ?: new TechnicianProfile(['user_id' => $user->id]);
-        $profile->phone     = $this->phone;
-        $profile->address   = $this->address;
-        $profile->is_active = (bool)$this->is_active;
-        $profile->save();
-
-        $this->dispatch('toast', message: 'Data teknisi tersimpan.', type: 'ok');
         $this->showModal = false;
+        $this->dispatch('toast', message: $msg, type: 'ok');
     }
 
-    public function toggleActive($userId)
+    public function toggleActive(int $id)
     {
-        $p = TechnicianProfile::firstOrCreate(['user_id'=>$userId], [
-            'is_active'=>true
-        ]);
+        $p = TechnicianProfile::findOrFail($id);
+        $p->update([ 'is_active' => !$p->is_active ]);
 
-        $p->is_active = ! $p->is_active;
-        $p->save();
+        $this->dispatch('toast', message: 'Status diperbarui.', type: 'ok');
     }
 
-    public function delete($userId)
+    public function delete(int $id)
     {
-        $u = User::where('role', Role::TEKNISI)->findOrFail($userId);
-        $u->delete();
+        $p = TechnicianProfile::with('user')->findOrFail($id);
+
+        if ($p->user) $p->user->delete();
+        else $p->delete();
 
         $this->dispatch('toast', message: 'Teknisi dihapus.', type: 'ok');
+    }
+
+    public function render()
+    {
+        /** 
+         * FILTER MENGGUNAKAN QUERY BUILDER (AGAR PAGINATE BISA)
+         */
+        $profiles = TechnicianProfile::with('user')
+            ->whereHas('user', fn($q) => $q->where('role', Role::TEKNISI))
+            ->when($this->search, function ($q) {
+                $s = "%{$this->search}%";
+                $q->where('team_name', 'like', $s)
+                  ->orWhere('member_1_name', 'like', $s)
+                  ->orWhere('member_2_name', 'like', $s)
+                  ->orWhereHas('user', fn($u)=>$u->where('email','like',$s));
+            })
+            ->when($this->statusFilter !== 'all', function ($q) {
+                $q->where('status', $this->statusFilter);
+            })
+            ->orderBy('team_name')
+            ->paginate(10);
+
+        return view('livewire.admin.technicians.index', [
+            'teams' => $profiles
+        ])->layout('layouts.app', [
+            'title'  => 'Tim Teknisi',
+            'header' => 'Admin • Tim Teknisi',
+        ]);
     }
 }

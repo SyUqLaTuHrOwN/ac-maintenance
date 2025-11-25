@@ -3,64 +3,92 @@
 namespace App\Livewire\Teknisi\Reports;
 
 use Livewire\Component;
+use Livewire\WithPagination;
 use App\Models\MaintenanceReport;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
 
 class Index extends Component
 {
-    public string $from_date;
-    public string $to_date;
-    public ?string $status = null; // "draft" | "submitted" | "disetujui" | "revisi" | null
+    use WithPagination;
 
-    public function mount(): void
+    public ?string $search = '';
+    public ?string $dateFrom = null;
+    public ?string $dateTo   = null;
+    public ?string $statusFilter = null;
+
+    public ?int $detailId = null;
+
+    protected $paginationTheme = 'tailwind';
+
+    public function updatingSearch()
     {
-        $this->from_date = now('Asia/Jakarta')->startOfMonth()->format('Y-m-d');
-        $this->to_date   = now('Asia/Jakarta')->endOfMonth()->format('Y-m-d');
+        $this->resetPage();
     }
 
-    public function monthThis(): void
+    public function updatingDateFrom()
     {
-        $this->from_date = now('Asia/Jakarta')->startOfMonth()->format('Y-m-d');
-        $this->to_date   = now('Asia/Jakarta')->endOfMonth()->format('Y-m-d');
+        $this->resetPage();
     }
 
-    protected function range(): array
+    public function updatingDateTo()
     {
-        return [
-            Carbon::parse($this->from_date, 'Asia/Jakarta')->startOfDay(),
-            Carbon::parse($this->to_date, 'Asia/Jakarta')->endOfDay(),
-        ];
+        $this->resetPage();
     }
 
-    /** Ambil laporan teknisi + client, lokasi, dan UNIT AC dari schedule */
-    protected function getReports()
+    public function updatingStatusFilter()
     {
-        [$from, $to] = $this->range();
-        $techId = auth()->id();
+        $this->resetPage();
+    }
 
-        return MaintenanceReport::with([
-                // relasi yang akan dipakai di tabel
-                'schedule.client:id,company_name',
-                'schedule.location:id,name',
-                'schedule.units:id,location_id,brand,model,serial_number',
-            ])
-            ->where('technician_id', $techId)
-            // filter berdasarkan rentang jadwal (bukan created_at), supaya konsisten dgn tampilan
-            ->whereHas('schedule', fn($q) => $q->whereBetween('scheduled_at', [$from, $to]))
-            // filter status opsional
-            ->when($this->status, fn($q) => $q->where('status', $this->status))
-            ->latest('finished_at')
-            ->get();
+    public function showDetail(int $id)
+    {
+        $this->detailId = $id;
+    }
+
+    public function closeDetail()
+    {
+        $this->detailId = null;
     }
 
     public function render()
     {
-        $reports = $this->getReports();
+        $userId = auth()->id();
+$reports = MaintenanceReport::with(['schedule.location.client','user'])
+    ->where('user_id', $userId)
+    ->whereIn('status', ['draft','submitted','revision','rejected']) 
+            ->when($this->dateFrom, fn($q) =>
+                $q->whereDate('report_date', '>=', $this->dateFrom)
+            )
+            ->when($this->dateTo, fn($q) =>
+                $q->whereDate('report_date', '<=', $this->dateTo)
+            )
+            ->when($this->search, function ($q) {
+                $s = '%'.$this->search.'%';
+                $q->whereHas('schedule.location', fn($qq) =>
+                        $qq->where('name', 'like', $s)
+                    )
+                  ->orWhereHas('schedule.client', fn($qq) =>
+                        $qq->where('company_name', 'like', $s)
+                    );
+            })
+            ->orderByDesc('report_date')
+            ->orderByDesc('id')
+            ->paginate(10);
 
-        return view('livewire.teknisi.reports.index', compact('reports'))
-            ->layout('layouts.app', [
-                'title'  => 'Laporan',
-                'header' => 'Teknisi • Laporan',
-            ]);
+        $detail = null;
+        if ($this->detailId) {
+            $detail = MaintenanceReport::with([
+                'schedule.location.client',
+                'user',
+            ])->find($this->detailId);
+        }
+
+        return view('livewire.teknisi.reports.index', [
+            'reports' => $reports,
+            'detail'  => $detail,
+        ])->layout('layouts.app', [
+            'title'  => 'Laporan Teknisi',
+            'header' => 'Operasional • Laporan Teknisi',
+        ]);
     }
 }

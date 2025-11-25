@@ -34,7 +34,7 @@
         <tbody>
           @forelse ($nextSchedules as $row)
             <tr class="border-t">
-              <td class="p-3">{{ $row->scheduled_at->format('d M Y H:i') }}</td>
+              <td class="p-3">{{ $row->scheduled_at->format('d M Y') }}</td>
               <td class="p-3">{{ $row->client->company_name ?? '-' }}</td>
               <td class="p-3">{{ $row->location->name ?? '-' }}</td>
               <td class="p-3">{{ $row->technician->name ?? '-' }}</td>
