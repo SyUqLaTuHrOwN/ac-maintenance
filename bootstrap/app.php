@@ -24,4 +24,5 @@ return Application::configure(basePath: dirname(__DIR__))
                  ->dailyAt('08:00')
                  ->timezone('Asia/Jakarta');
     })
+    
     ->create();

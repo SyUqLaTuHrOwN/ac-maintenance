@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{{ $title ?? 'Dashboard' }} • AC Maintenance</title>
+  <title>{{ $title ?? 'Dashboard' }} • Aplikasi Maintenance AC SAS</title>
   @vite(['resources/css/app.css','resources/js/app.js'])
   @livewireStyles
 
@@ -37,7 +37,7 @@
   <div class="px-4 py-4 flex items-center gap-3">
     <x-logo.coolcare class="h-9 w-9 text-indigo-600" />
     <div class="leading-tight">
-      <div class="text-base font-semibold">CoolCare AC</div>
+      <div class="text-base font-semibold">Maintenance AC SAS</div>
       <div class="text-[11px] text-slate-500">Maintenance Suite</div>
     </div>
   </div>
