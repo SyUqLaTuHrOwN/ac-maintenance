@@ -1,9 +1,10 @@
 <div>
   {{-- HERO --}}
   <section
-    id="home"
-    class="relative h-[650px] flex flex-col items-center justify-center text-center text-white overflow-hidden bg-fixed bg-center bg-cover"
-    style="background-image: url('https://encrypted-tbn2.gstatic.com/images?q=tbn:ANd9GcRdWAi2fhyC22txABHSyDpis81dr-mMMldst-VIPNFKm9pQjoPp');">
+  id="home"
+  class="relative h-[650px] flex flex-col items-center justify-center text-center text-white overflow-hidden bg-fixed bg-center bg-cover"
+  style="background-image: url('{{ asset('images/home.jpg') }}');">
+
 
     <div class="absolute inset-0 bg-gradient-to-b from-black/70 via-black/50 to-transparent"></div>
 
@@ -50,39 +51,40 @@
   </section>
 
 @php
-  $docs = [
+$docs = [
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/Pengadaan-Chiller.jpg',
-      'title' => 'Pengadaan Chiller',
-      'desc' => 'AHU/FCU dan equipment pendingin terkait lainnya.'
+        'img'   => asset('images/docs/Pengadaan-Chiller.jpg'),
+        'title' => 'Pengadaan Chiller',
+        'desc'  => 'AHU/FCU dan equipment pendingin terkait lainnya.',
     ],
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/AC-Central.jpg',
-      'title' => 'AC Central',
-      'desc' => 'Desain, instalasi dan pemeliharaan AC Central.'
+        'img'   => asset('images/docs/AC-Central.jpg'),
+        'title' => 'AC Central',
+        'desc'  => 'Desain, instalasi dan pemeliharaan AC Central.',
     ],
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/Chiller-Plant.jpg',
-      'title' => 'Chiller Plant',
-      'desc' => 'Desain, instalasi dan pemeliharaan Chiller Plant.'
+        'img'   => asset('images/docs/Chiller-Plant.jpg'),
+        'title' => 'Chiller Plant',
+        'desc'  => 'Desain, instalasi dan pemeliharaan Chiller Plant.',
     ],
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/chiller.jpg',
-      'title' => 'Corrective Maintenance',
-      'desc' => 'Corrective Maintenance (Termasuk pengadaan suku cadang)'
+        'img'   => asset('images/docs/corrective-maintenance.jpg'),
+        'title' => 'Corrective Maintenance',
+        'desc'  => 'Corrective Maintenance (Termasuk pengadaan suku cadang).',
     ],
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/Preventive-Maintenance.jpg',
-      'title' => 'Preventive Maintenance',
-      'desc' => 'Preventive Maintenance.'
+        'img'   => asset('images/docs/Preventive-Maintenance.jpg'),
+        'title' => 'Preventive Maintenance',
+        'desc'  => 'Preventive Maintenance.',
     ],
     [
-      'img' => 'https://sriwijayaabadisolusindo.id/wp-content/uploads/2025/05/Automasi-dan-Racking-System.jpg',
-      'title' => 'Automasi & Racking System',
-      'desc' => 'Automasi & Racking System'
+        'img'   => asset('images/docs/Automasi-dan-Racking-System.jpg'),
+        'title' => 'Automasi & Racking System',
+        'desc'  => 'Automasi & Racking System.',
     ],
-  ];
+];
 @endphp
+
 
 <section id="docs" class="bg-[#0b3b78] py-20">
   <div class="max-w-7xl mx-auto px-4">
@@ -93,8 +95,11 @@
     <h2 class="text-3xl font-semibold text-center text-white" data-fade>
       HVAC (Heating, Ventilating, Air Conditioning)
     </h2>
-    <h2 class="text-1xl font-semibold text-center text-white" data-fade>
-      Sebagai salah satu perusahaan yang memberikan solusi lengkap dalam menjaga kelancaran operasional perusahaan, PT SRIWIJAYA ABADI SOLUSINDO memiliki satu bidang usaha yang bergerak di bidang desain, instalasi ataupun pemeliharaan komponen HVAC (Heating, Ventilating, Air Conditioning), Mekanikal, Elektrikal dan Chiller Plant.
+
+    <h2 class="text-1xl font-semibold text-center text-white mt-4" data-fade>
+      Sebagai salah satu perusahaan yang memberikan solusi lengkap dalam menjaga kelancaran operasional perusahaan, 
+      PT SRIWIJAYA ABADI SOLUSINDO memiliki satu bidang usaha yang bergerak di bidang desain, instalasi ataupun 
+      pemeliharaan komponen HVAC (Heating, Ventilating, Air Conditioning), Mekanikal, Elektrikal dan Chiller Plant.
     </h2>
 
     <div class="mt-12 grid sm:grid-cols-2 md:grid-cols-3 gap-x-12 gap-y-16 place-items-center">
@@ -102,12 +107,12 @@
       @foreach ($docs as $item)
         <div data-fade class="text-center text-white">
 
-          {{-- FRAME GAMBAR --}}
-          <div class="bg-white p-2 shadow-xl">
+          {{-- FRAME GAMBAR (auto mengikuti ukuran foto) --}}
+          <div class="bg-white p-2 shadow-xl inline-block rounded-md">
             <img
               src="{{ $item['img'] }}"
               alt="Dokumentasi"
-              class="w-[280px] h-[360px] object-contain"
+              class="max-w-[280px] max-h-[360px] object-contain"
             >
           </div>
 
@@ -122,6 +127,7 @@
 
   </div>
 </section>
+
 
 
   {{-- TESTIMONI (dinamis dari DB) --}}
@@ -261,7 +267,7 @@
 </section>
 
   {{-- FLOATING WA --}}
-  <a href="https://wa.me/6281584183827" target="_blank"
+  <a href="https://wa.me/62 81584183827" target="_blank"
      class="fixed bottom-6 right-6 bg-green-500 text-white p-4 rounded-full shadow-lg hover:scale-110 transition text-xl float">
      💬
   </a>
